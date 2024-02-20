@@ -1,0 +1,140 @@
+```{r load data, message=FALSE}
+
+library(tidyverse)
+library(here)
+library(lmerTest)
+source(file = here('scripts/functions.R'))
+
+loc <- here('data/processed')
+loc_nvox <- here('data/n_active_vox')
+
+# initialise all data frames
+all_participants <- tibble()
+d2c_bins <- tibble()
+sup_bins <- tibble()
+mid_bins <- tibble()
+deep_bins <- tibble()
+
+nsubs <- 0
+for (file in list.files(loc, full.names=TRUE)){
+  nsubs <- nsubs + 1 
+  #load rds file
+  p_data <- readRDS(file)
+  
+  #add different elements to the appropriate group level tibble
+  all_participants <- rbind(all_participants, p_data$df_full)
+  d2c_bins <- rbind(d2c_bins, p_data$d2c_bin)
+  sup_bins <- rbind(sup_bins, p_data$sup_bin)
+  mid_bins <- rbind(mid_bins, p_data$mid_bin)
+  deep_bins <- rbind(deep_bins, p_data$deep_bin)
+}
+
+all_participants <-  all_participants %>%
+  filter(!is.na(be_c))
+
+nsubs <- 0
+
+n_active_vox <- list.files(loc_nvox, pattern = 'active-vox', full.names=TRUE) %>%
+  lapply(read_lines) %>%
+  lapply(tibble) %>%
+  bind_rows
+
+names(n_active_vox)[1] <- "n_vox"
+
+n_active_vox$n_vox <- as.numeric(n_active_vox$n_vox)
+
+n_subs <- dim(n_active_vox)[1]/4
+
+labs <- rep(c('sup', 'mid', 'deep', 'all'), n_subs)
+n_active_vox$layer <- labs
+sub <- sort(rep(1:n_subs, 4))
+n_active_vox$count <- sub
+
+vox <- n_active_vox %>%
+  pivot_wider(names_from = "layer", values_from = "n_vox")
+
+```
+
+```{r decoding accuracy setup}
+
+sub_means <- all_participants %>%
+  group_by(sub) %>%
+  summarise(sup = mean(de_s),
+            mid = mean(de_m),
+            deep = mean(de_d)) %>%
+  ungroup()
+
+```
+
+```{r correlations}
+
+cor.test(sub_means$sup, vox$sup)
+
+cor.test(sub_means$mid, vox$mid)
+
+cor.test(sub_means$deep, vox$deep)
+```
+
+```{r}
+
+plot(sub_means$sup, vox$sup)
+
+```
+
+```{r load motion info, message=FALSE}
+
+all_ps_norm <- tibble()
+
+for (sub in 1:30){
+  
+  if(sub != 5 && sub != 23){
+    sub <- as.character(sub)
+    
+    if (nchar(sub) == 1){
+      sub <- paste0('0', sub)
+    }
+    
+    loc_enorm <- paste0(here('data/motion_enorm'), '/sub-', sub)
+    
+    enorm <- list.files(loc_enorm, pattern = 'enorm', full.names=TRUE) %>%
+      lapply(read_lines) %>%
+      lapply(tibble) %>%
+      bind_rows
+    
+    names(enorm)[1] <- "enorm_val"
+    enorm$enorm_val <- as.numeric(enorm$enorm_val)
+  
+    sub_median <- mean(enorm$enorm_val)
+  
+    sub_info <- c(sub, sub_median)
+  
+    all_ps_norm <- rbind(all_ps_norm, sub_info)
+    }
+}
+
+names(all_ps_norm) <- c("sub", "med_enorm")
+
+all_ps_norm$med_enorm <- as.numeric(all_ps_norm$med_enorm)
+
+```
+
+```{r}
+
+cor.test(all_ps_norm$med_enorm, sub_means$sup)
+cor.test(all_ps_norm$med_enorm, sub_means$mid)
+cor.test(all_ps_norm$med_enorm, sub_means$deep)
+
+
+#plot(all_ps_norm$med_enorm, sub_means$deep)
+```
+```{r}
+
+# relationship between decoding error and behavioural error per layer
+plot(all_participants$be_a, all_participants$de_s)
+
+
+cor.test(all_participants$be_a, all_participants$de_s)
+
+de_v_be <- lmer(be_a ~ de_d + (1|sub), data=all_participants)
+summary(de_v_be)
+```

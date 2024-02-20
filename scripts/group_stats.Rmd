@@ -1,0 +1,302 @@
+# Group stats
+
+```{r load data, message=FALSE}
+
+library(tidyverse)
+library(here)
+library(lmerTest)
+source(file = here('scripts/functions.R'))
+
+loc <- here('data/processed')
+
+# initialise all data frames
+all_participants <- tibble()
+d2c_bins <- tibble()
+sup_bins <- tibble()
+mid_bins <- tibble()
+deep_bins <- tibble()
+
+nsubs <- 0
+for (file in list.files(loc, full.names=TRUE)){
+  nsubs <- nsubs + 1 
+  #load rds file
+  p_data <- readRDS(file)
+  
+  #add different elements to the appropriate group level tibble
+  all_participants <- rbind(all_participants, p_data$df_full)
+  d2c_bins <- rbind(d2c_bins, p_data$d2c_bin)
+  sup_bins <- rbind(sup_bins, p_data$sup_bin)
+  mid_bins <- rbind(mid_bins, p_data$mid_bin)
+  deep_bins <- rbind(deep_bins, p_data$deep_bin)
+}
+
+all_participants <-  all_participants %>%
+  filter(!is.na(be_c))
+
+nbins<-dim(sup_bins)[1]
+
+sup_bins <- sup_bins %>%
+  mutate(layer = rep('sup', nbins))
+
+mid_bins <- mid_bins %>%
+  mutate(layer = rep('mid', nbins))
+
+deep_bins <- deep_bins %>%
+  mutate(layer = rep('deep', nbins))
+
+```
+
+```{r modelling behaviour}
+
+# bias as a function of d2c
+bias_model <- lmer(mean_bias ~ mean_d2c + (1|sub), data=d2c_bins)
+summary(bias_model)
+
+# behavioural variability as a function of d2c
+bvar_model <- lmer(b_var ~ mean_d2c + (1|sub), data=d2c_bins)
+summary(bvar_model)
+
+```
+```{r}
+
+fit1 <- lme4::lmer(mean_d2c ~ (1|sub), data=d2c_bins)
+fit2 <- lme4::lmer(mean_bias ~ (1|sub), data=d2c_bins)
+cor(residuals(fit1), residuals(fit2))
+
+```
+
+
+```{r decoding accuracy setup}
+
+sub_means <- all_participants %>%
+  group_by(sub) %>%
+  summarise(de_s_mean = mean(de_s),
+            de_m_mean = mean(de_m),
+            de_d_mean = mean(de_d)) %>%
+  ungroup()
+
+df_points <- sub_means %>%
+  rename(sup = de_s_mean, mid = de_m_mean, deep = de_d_mean) %>%
+  pivot_longer(cols = c('sup', 'mid', 'deep'), names_to="layer", values_to="de") %>%
+  group_by(layer)
+
+```
+
+```{r decoding accuracy descriptives}
+
+mean_s <- mean(df_points$de[df_points$layer == "sup"])
+mean_m <- mean(df_points$de[df_points$layer == "mid"])
+mean_d <- mean(df_points$de[df_points$layer == "deep"])
+
+mean_overall_taf <- mean(c(mean_s, mean_m, mean_d))
+
+paste('The mean overall angular error was', mean_overall_taf)
+
+paste('The mean angular error in decoding was', mean_s, 'for the superficial layer,', mean_m, 'for the middle layer, and', mean_d, 'for the deep layer.')
+
+paste('The best decoding overall was', min(df_points$de))
+
+sup_vals <- df_points$de[df_points$layer == "sup"]
+mid_vals <- df_points$de[df_points$layer == "mid"]
+deep_vals <- df_points$de[df_points$layer == "deep"]
+
+paste('The no. ps with decoding lower than 30 in sup layer was:', length(sup_vals[sup_vals <= 30]))
+paste('The no. ps with decoding lower than 30 in mid layer was:', length(mid_vals[mid_vals <= 30]))
+paste('The no. ps with decoding lower than 30 in deep layer was:', length(deep_vals[deep_vals <= 30]))
+
+df_points$decoder <- rep(c('tafkap'), dim(df_points)[1])
+saveRDS(df_points, file=paste0(here('data/decoding_comparison'), '/tafkap_df.rds'))
+
+```
+
+```{r decoding accuracy stats}
+
+sup_stats <- df_points %>% filter(layer == 'sup')
+wilcox.test(sup_stats$de, mu = 45)
+
+mid_stats <- df_points %>% filter(layer == 'mid')
+wilcox.test(mid_stats$de, mu = 45)
+
+deep_stats <- df_points %>% filter(layer == 'deep')
+wilcox.test(deep_stats$de, mu = 45)
+
+```
+
+```{r comparing group differences}
+
+friedman.test(de ~ layer|sub, data=df_points)
+
+eff_size <- 7.714286/(28*(10-1))
+
+wilcox.test(df_points$de[df_points$layer == 'sup'],
+            df_points$de[df_points$layer == 'mid'], 
+            paired = TRUE, p.adjust.method = "bonferroni")
+
+wilcox.test(df_points$de[df_points$layer == 'sup'],
+            df_points$de[df_points$layer == 'deep'], 
+            paired = TRUE)
+
+wilcox.test(df_points$de[df_points$layer == 'mid'],
+            df_points$de[df_points$layer == 'deep'], 
+            paired = TRUE)
+
+p.adjust(c(0.001172, 0.006549, 0.6295), method="bonferroni")
+```
+
+```{r find sig. participants}
+
+subs <- unique(all_participants$sub)
+
+p_subs_s <- c()
+p_subs_m <- c()
+p_subs_d <- c()
+
+for (s in subs){
+  tmp <- all_participants %>%
+    filter(sub == s)
+  
+  p_subs_s <- append(p_subs_s,wilcox.test(tmp$de_s, mu=45)$p.value)
+  p_subs_m <- append(p_subs_m,wilcox.test(tmp$de_m, mu=45)$p.value)
+  p_subs_d <- append(p_subs_d,wilcox.test(tmp$de_d, mu=45)$p.value)
+}
+
+sig_subs_s <- subs[p_subs_s < .05]
+sig_subs_m <- subs[p_subs_m < .05]
+sig_subs_d <- subs[p_subs_d < .05]
+
+```
+
+```{r uncertainty regressions w/ d2c (all Ps)}
+
+d2c_unc_sup <- lmer(mean_unc_s ~ mean_d2c + (1|sub), data=d2c_bins)
+d2c_unc_mid <- lmer(mean_unc_m ~ mean_d2c + (1|sub), data=d2c_bins)
+d2c_unc_deep <- lmer(mean_unc_d ~ mean_d2c + (1|sub), data=d2c_bins)
+
+```
+
+```{r uncertainty regressions w/ d2c (sig. ori decoding only)}
+
+# sup: create new df only for ps where we could significantly decode orientation, then run model
+d2c_bins_filt_s <- d2c_bins[d2c_bins$sub %in% sig_subs_s, ]
+d2c_unc_sup_filt <- lmer(mean_unc_s ~ mean_d2c + (1|sub), data=d2c_bins_filt_s)
+
+# mid
+d2c_bins_filt_m <- d2c_bins[d2c_bins$sub %in% sig_subs_m, ]
+d2c_unc_mid_filt <- lmer(mean_unc_m ~ mean_d2c + (1|sub), data=d2c_bins_filt_m)
+
+#deep
+d2c_bins_filt_d <- d2c_bins[d2c_bins$sub %in% sig_subs_d, ]
+d2c_unc_deep_filt <- lmer(mean_unc_d ~ mean_d2c + (1|sub), data=d2c_bins_filt_d)
+
+```
+
+```{r}
+
+summary(d2c_unc_mid)
+
+fit1 <- lme4::lmer(mean_unc_m ~ (1|sub), data=d2c_bins)
+fit2 <- lme4::lmer(mean_d2c ~ (1|sub), data=d2c_bins)
+cor(residuals(fit1), residuals(fit2))
+
+```
+
+```{r uncertainty regressions bhvr (all Ps)}
+
+# sup: relationship between uncertainty and behavioural variability, and relationship between unc and bias
+sup_bvar <- lmer(b_var ~ mean_unc + (1|sub), data=sup_bins)
+sup_bias <- lmer(bias ~ mean_unc + (1|sub), data=sup_bins)
+
+# mid
+mid_bvar <- lmer(b_var ~ mean_unc + (1|sub), data=mid_bins)
+mid_bias <- lmer(bias ~ mean_unc + (1|sub), data=mid_bins)
+
+# deep
+deep_bvar <- lmer(b_var ~ mean_unc + (1|sub), data=deep_bins)
+deep_bias <- lmer(bias ~ mean_unc + (1|sub), data=deep_bins)
+
+```
+
+```{r uncertainty regressions bhvr (sig. ori decoding only)}
+
+# sup: create new df only for ps where we could significantly decode orientation, then run model
+sup_bins_filt <- sup_bins[sup_bins$sub %in% sig_subs_s, ]
+
+sup_bvar_filt <- lmer(b_var ~ mean_unc + (1|sub), data=sup_bins_filt)
+sup_bias_filt <- lmer(bias ~ mean_unc + (1|sub), data=sup_bins_filt)
+
+# mid
+mid_bins_filt <- mid_bins[mid_bins$sub %in% sig_subs_m, ]
+
+mid_bvar_filt <- lmer(b_var ~ mean_unc + (1|sub), data=mid_bins_filt)
+mid_bias_filt <- lmer(bias ~ mean_unc + (1|sub), data=mid_bins_filt)
+
+# deep
+deep_bins_filt <- deep_bins[deep_bins$sub %in% sig_subs_d, ]
+
+deep_bvar_filt <- lmer(b_var ~ mean_unc + (1|sub), data=deep_bins_filt)
+deep_bias_filt <- lmer(bias ~ mean_unc + (1|sub), data=deep_bins_filt)
+```
+
+```{r check models}
+
+summary(deep_bias_filt)
+
+```
+
+```{r}
+
+fit1 <- lme4::lmer(mean_unc ~ (1|sub), data=deep_bins)
+fit2 <- lme4::lmer(bias ~ (1|sub), data=deep_bins)
+cor(residuals(fit1), residuals(fit2))
+
+```
+
+```{r decoded uncertainty vs decoded error}
+
+de_vs_dunc_s <- lmer(de_var ~ mean_unc + (1|sub), data=sup_bins_filt)
+de_vs_dunc_m <- lmer(de_var ~ mean_unc + (1|sub), data=mid_bins_filt)
+de_vs_dunc_d <- lmer(de_var ~ mean_unc + (1|sub), data=deep_bins_filt)
+```
+
+```{r see model summaries}
+
+summary(de_vs_dunc_d)
+
+```
+```{r get partial corr coefficients}
+
+fit1 <- lme4::lmer(de_var ~ (1|sub), data=deep_bins_filt)
+fit2 <- lme4::lmer(mean_unc ~ (1|sub), data=deep_bins_filt)
+cor(residuals(fit1), residuals(fit2))
+
+```
+
+```{r}
+
+sig_participants_s <- all_participants[all_participants$sub %in% sig_subs_s,] 
+sig_participants_m <- all_participants[all_participants$sub %in% sig_subs_m,] 
+sig_participants_d <- all_participants[all_participants$sub %in% sig_subs_d,] 
+```
+
+```{r}
+
+with_dec_s <- lmer(de_s ~ unc_s + (1|sub), data=sig_participants_s)
+with_dec_m <- lmer(de_m ~ unc_m + (1|sub), data=sig_participants_m)
+with_dec_d <- lmer(de_d ~ unc_d + (1|sub), data=sig_participants_d)
+
+summary(with_dec_s)
+
+```
+
+```{r}
+
+fit1 <- lme4::lmer(de_d ~ (1|sub), data=sig_participants_d)
+fit2 <- lme4::lmer(unc_d ~ (1|sub), data=sig_participants_d)
+cor(residuals(fit1), residuals(fit2))
+
+
+x<-residuals(fit1)
+y<-residuals(fit2)
+
+plot(x,y)
+```

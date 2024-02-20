@@ -1,0 +1,152 @@
+```{r load data, message=FALSE}
+
+library(tidyverse)
+library(here)
+library(lmerTest)
+source(file = here('scripts/functions.R'))
+
+```
+
+```{r}
+
+loc <- here('data/svr_processed')
+
+svr_results <- list.files(loc, pattern = '.rds', full.names=TRUE) %>%
+  lapply(readRDS) %>%
+  bind_rows
+
+svr_results <-  svr_results %>%
+  filter(!is.na(est_s))
+
+```
+
+```{r}
+
+sub_means <- svr_results %>%
+  group_by(sub) %>%
+  summarise(de_s_mean = mean(de_s),
+            de_m_mean = mean(de_m),
+            de_d_mean = mean(de_d)) %>%
+  ungroup()
+
+df_points <- sub_means %>%
+  rename(sup = de_s_mean, mid = de_m_mean, deep = de_d_mean) %>%
+  pivot_longer(cols = c('sup', 'mid', 'deep'), names_to="layer", values_to="de") %>%
+  group_by(layer)
+```
+
+```{r decoding accuracy descriptives}
+
+mean_s <- mean(df_points$de[df_points$layer == "sup"])
+mean_m <- mean(df_points$de[df_points$layer == "mid"])
+mean_d <- mean(df_points$de[df_points$layer == "deep"])
+
+mean_overall_svr <- mean(c(mean_s, mean_m, mean_d))
+
+paste('The mean overall angular error was', mean_overall_svr)
+
+paste('The mean angular error in decoding was', mean_s, 'for the superficial layer,', mean_m, 'for the middle layer, and', mean_d, 'for the deep layer.')
+
+paste('The best decoding overall was', min(df_points$de))
+
+sup_vals <- df_points$de[df_points$layer == "sup"]
+mid_vals <- df_points$de[df_points$layer == "mid"]
+deep_vals <- df_points$de[df_points$layer == "deep"]
+
+paste('The no. ps with decoding lower than 30 in sup layer was:', length(sup_vals[sup_vals <= 30]))
+paste('The no. ps with decoding lower than 30 in mid layer was:', length(mid_vals[mid_vals <= 30]))
+paste('The no. ps with decoding lower than 30 in deep layer was:', length(deep_vals[deep_vals <= 30]))
+
+df_points$decoder <- rep(c('svr'), dim(df_points)[1])
+saveRDS(df_points, file=paste0(here('data/decoding_comparison'), '/svr_df.rds'))
+
+```
+
+```{r decoding accuracy stats}
+
+sup_stats <- df_points %>% filter(layer == 'sup')
+wilcox.test(sup_stats$de, mu = 45)
+
+mid_stats <- df_points %>% filter(layer == 'mid')
+wilcox.test(mid_stats$de, mu = 45)
+
+deep_stats <- df_points %>% filter(layer == 'deep')
+wilcox.test(deep_stats$de, mu = 45)
+
+```
+```{r}
+
+friedman.test(de ~ layer|sub, data=df_points)
+
+x <- (friedman.test(de ~ layer|sub, data=df_points))$statistic
+
+eff_size <- 10.96296/(28*(10-1))
+
+wilcox.test(df_points$de[df_points$layer == 'sup'],
+            df_points$de[df_points$layer == 'mid'], 
+            paired = TRUE, p.adjust.method = "bonferroni")
+
+wilcox.test(df_points$de[df_points$layer == 'sup'],
+            df_points$de[df_points$layer == 'deep'], 
+            paired = TRUE)
+
+wilcox.test(df_points$de[df_points$layer == 'mid'],
+            df_points$de[df_points$layer == 'deep'], 
+            paired = TRUE)
+
+p.adjust(c(0.002708, 0.00594, 0.7857), method="bonferroni")
+
+```
+
+```{r}
+
+df_points <- sub_means %>%
+  rename(sup = de_s_mean, mid = de_m_mean, deep = de_d_mean) %>%
+  pivot_longer(cols = c('sup', 'mid', 'deep'), names_to="layer", values_to="de") %>%
+  group_by(layer)
+
+df_plot <- sub_means %>%
+  rename(sup = de_s_mean, mid = de_m_mean, deep = de_d_mean) %>%
+  pivot_longer(cols = c('sup', 'mid', 'deep'), names_to="layer", values_to="de") %>%
+  group_by(layer) %>%
+  summarise(mean_error = mean(de),
+            sd = sd(de),
+            n = n()) %>%
+  ungroup() %>%
+  mutate(sderr_error = sd/sqrt(n)) %>%
+  mutate(c_upper = mean_error + 1.96*sderr_error,
+         c_lower = mean_error - 1.96*sderr_error) %>%
+  arrange(desc(layer))
+
+df_plot$layer <- as.character(df_plot$layer)
+df_plot$layer <- factor(df_plot$layer, levels=c("sup", "mid", "deep"))
+
+dec_acc <- df_plot %>%
+  ggplot(aes(x = layer, y = mean_error, color=layer)) +
+  scale_color_manual(values=c('steelblue', 'indianred3','steelblue')) +
+  geom_jitter(aes(x=layer, y=de), color="black", width=0.2, size=2, data=df_points) +
+  geom_point(size=8) +
+  geom_errorbar(aes(x = layer, ymin = c_lower, ymax = c_upper, linewidth=1.5), data=df_plot) +
+  geom_hline(yintercept=45, linetype="dashed", color="grey48", linewidth=2) +
+  scale_y_continuous(breaks = c(0, 15, 30, 45, 60), limits = c(0,60)) +
+  labs(
+    x = 'Layer',
+    y = 'Decoding error (°)'
+  ) +
+  scale_x_discrete(
+    limits = c("sup", "mid", "deep"), 
+    labels = c('sup' = 'Superficial', 'mid' = 'Middle', 'deep' ='Deep')) +
+  theme_bw() +
+  theme(legend.position="none", 
+        panel.grid=element_blank(), 
+        strip.text = element_blank(),
+        axis.title.x = element_blank(),
+        axis.title.y = element_text(size=25, vjust=3),
+        axis.text.x = element_text(size = 25, color="black"),
+        axis.text.y = element_text(size = 25, color="black"),
+        plot.margin = unit(c(0.3,0.6,0.2,0.85), "cm"),
+        )
+
+ggsave('../plots/svr_dec_acc.png', dec_acc, width=2750, height=2250, units="px")
+
+```
