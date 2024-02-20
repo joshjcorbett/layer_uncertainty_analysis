@@ -18,9 +18,10 @@ After following the steps in the synopsis (below) two other data directories wil
 
 ## Synopsis
 
-1. Run scripts/batch_processing.sh to batch process each individual's behavioural data and TAFKAP output (this will iteratively run individual_processing.R)
+1. Run batch_processing.sh to batch process each individual's behavioural data and TAFKAP output (this will iteratively run individual_processing.R)
 2. Run scripts/batch_svr_prep.sh to batch process each individual's SVR output (this will iteratively run svr_prep.R)
-3. Open/run scripts/group_stats.rmd to run group level analyses for relevant behaviour only / TAFKAP (i.e., decoding error and decoded uncertainty) analyses
-4. Open/run scripts/svr_stats.rmd to run group level analyses on the SVR
-5. Open/run plots.rmd to see how all visualisations were made
-6. Open/run supplementary.rmd to see the statistics used to consider the relationship between decoding error (using TAFKAP) and head movement/no. voxels included in the analysis
+3. Open R through (i.e., by double clicking on) final_analysis.Rproj
+4. Open/run group_stats.rmd to run group level analyses for relevant behaviour only / TAFKAP (i.e., decoding error and decoded uncertainty) analyses
+5. Open/run scripts/svr_stats.rmd to run group level analyses on the SVR
+6. Open/run plots.rmd to see how all visualisations were made
+7. Open/run supplementary.rmd to see the statistics used to consider the relationship between decoding error (using TAFKAP) and head movement/no. voxels included in the analysis
