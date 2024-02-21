@@ -1,5 +1,25 @@
 # Group stats
 
+Search for the figure name to see how it was made.
+
+List of figures:
+
+-   Figure 3.2
+
+-   Figure 3.3
+
+-   Figure 3.4
+
+-   Figure 3.5
+
+-   Figure 3.6
+
+-   Figure 3.7
+
+-   Figure 3.8
+
+-   Supplementary Figure S1
+
 ```{r load data, message=FALSE}
 
 library(tidyverse)
@@ -45,29 +65,15 @@ deep_bins <- deep_bins %>%
 
 ```{r behaviour only plots}
 
-d2c_summarised <- d2c_bins %>% 
-  group_by(d2c_bin) %>%
-  summarise(n = n(),
-            mn_d2c = mean(mean_d2c),
-            max_d2c = max(mean_d2c),
-            min_d2c = min(mean_d2c),
-            mnBvar = mean(b_var),
-            serrBvar = sd(b_var)/sqrt(n),
-            mnBias = mean(mean_bias),
-            serrBias = sd(mean_bias)/sqrt(n)) %>%
-  ungroup()
-
-labs <- sprintf("%.1f", d2c_summarised$mn_d2c)
-
-d2c_bvar_plot <- d2c_summarised %>%
-  ggplot(aes(x = as.factor(d2c_bin), y = mnBvar)) +
-  geom_point(aes(x = as.factor(d2c_bin), y = b_var), data=d2c_bins, width=0.3) +
+## Figure 3.2 
+d2c_bvar_plot <- d2c_bins %>%
+  ggplot(aes(x = mean_d2c, y = b_var)) +
   geom_point(size=4, color="seagreen") +
-  geom_errorbar(aes(x = d2c_bin, ymin = mnBvar - serrBvar, ymax = mnBvar + serrBvar), linewidth=2, color="seagreen") +
-  scale_y_continuous(limits = c(0, 15)) +
-  scale_x_discrete(labels=labs) +
+  scale_y_continuous(limits = c(0, 18)) +
+  scale_x_continuous(limits=c(0,45)) +
+  geom_smooth(method = "lm", se = FALSE, linewidth=2, color="black", linetype="dashed") +
   theme_bw() +
-  labs(x = 'Distance to nearest cardinal axis (°, binned)',
+  labs(x = 'Distance to nearest cardinal axis (°)',
        y = 'Behavioural variability (s.d. in °)') +
   theme(legend.position="none", 
         panel.grid=element_blank(), 
@@ -79,18 +85,17 @@ d2c_bvar_plot <- d2c_summarised %>%
         plot.margin = unit(c(0.4,0.6,0.7,0.85), "cm")
         )
 
-ggsave('../plots/d2c_bvar_alt.png', d2c_bvar_plot, width=2750, height=2250, units="px")
+ggsave('../plots/d2c_bvar_new.png', d2c_bvar_plot, width=2750, height=2250, units="px")
 
-d2c_bias_plot <- d2c_summarised %>%
-  ggplot(aes(x = as.factor(d2c_bin), y = mnBias)) +
-  geom_hline(yintercept = 0, linewidth=1, color="grey28",alpha=0.7, linetype="dashed") +
-  geom_jitter(aes(x = as.factor(d2c_bin), y = mean_bias), data=d2c_bins, width=0.3) +
+## Figure 3.3
+d2c_bias_plot <- d2c_bins %>%
+  ggplot(aes(x = mean_d2c, y = mean_bias)) +
   geom_point(size=4, color="seagreen") +
-  geom_errorbar(aes(x = d2c_bin, ymin = mnBias - serrBias, ymax = mnBias + serrBias), linewidth=2, color="seagreen") +
-  scale_y_continuous(limits = c(-5, 15)) +
-  scale_x_discrete(labels=labs) +
+  scale_y_continuous(limits = c(-5, 20)) +
+  scale_x_continuous(limits=c(0,45)) +
+  geom_smooth(method = "lm", se = FALSE, linewidth=2, color="black", linetype="dashed") +
   theme_bw() +
-  labs(x = 'Distance to nearest cardinal axis (°, binned)',
+  labs(x = 'Distance to nearest cardinal axis (°)',
        y = 'Repulsive bias (°)') +
   theme(legend.position="none", 
         panel.grid=element_blank(), 
@@ -102,10 +107,9 @@ d2c_bias_plot <- d2c_summarised %>%
         plot.margin = unit(c(0.4,0.6,0.7,0.85), "cm")
         )
 
-ggsave('../plots/d2c_bias.png', d2c_bias_plot, width=2750, height=2250, units="px")
+ggsave('../plots/d2c_bias_new.png', d2c_bias_plot, width=2750, height=2250, units="px")
 
 ```
-
 
 ```{r decoding of orientation, warning=FALSE}
 
@@ -145,9 +149,7 @@ dec <- rbind(sup_dec, mid_dec, deep_dec) %>%
 
 ```
 
-
-
-```{r plot decoding of orientation (group level)}
+```{r set up for orientation decoding accuracy plot (group level)}
 
 sub_means <- all_participants %>%
   group_by(sub) %>%
@@ -177,6 +179,10 @@ df_plot <- sub_means %>%
 df_plot$layer <- as.character(df_plot$layer)
 df_plot$layer <- factor(df_plot$layer, levels=c("sup", "mid", "deep"))
 
+```
+
+```{r orientation decoding accuracy plot (group level)}
+## Figure 3.4
 dec_acc <- df_plot %>%
   ggplot(aes(x = layer, y = mean_error, color=layer)) +
   scale_color_manual(values=c('steelblue', 'indianred3','steelblue')) +
@@ -203,8 +209,7 @@ dec_acc <- df_plot %>%
         plot.margin = unit(c(0.3,0.6,0.2,0.85), "cm"),
         )
 
-#ggsave('dec_acc.png', dec_acc, width=2750, height=2250, units="px")
-ggsave('../plots/dec_acc2.png', dec_acc, width=2750, height=2250, units="px")
+ggsave('../plots/dec_acc.png', dec_acc, width=2750, height=2250, units="px")
 
 ```
 
@@ -213,7 +218,9 @@ ggsave('../plots/dec_acc2.png', dec_acc, width=2750, height=2250, units="px")
 layer_means <- dec %>%
   group_by(layer) %>%
   summarise(mean = mean(de_mean))
-  
+
+
+## Supplementary Figure S1
 dec_acc_ind <- dec %>%
   ggplot(aes(x=sub, y=de_mean, color=sig)) +
   scale_color_manual(values = c("indianred3", "steelblue")) +
@@ -266,7 +273,46 @@ sig_subs_d <- subs[p_subs_d < .05]
 
 ```
 
-```{r all bins plot}
+```{r set up for d2c vs unc plot}
+
+d2c_bins_long <- d2c_bins %>%
+  rename(sup = mean_unc_s, mid = mean_unc_m, deep = mean_unc_d) %>%
+  pivot_longer(cols = c('sup', 'mid', 'deep'), 
+               names_to = 'layer',
+               values_to = 'mean_unc')
+
+```
+
+```{r plot d2c vs unc}
+
+## Figure 3.5
+d2c_unc_plot <- d2c_bins_long %>% 
+  ggplot(aes(x=mean_d2c, y=mean_unc)) +
+  facet_grid(fct_rev(layer) ~ ., space="free") +
+  geom_point(size=2, color="seagreen") +
+  geom_smooth(method = "lm", se = FALSE, linewidth=1.5, color="black", linetype="dashed") +
+  scale_y_continuous(limits = c(20,45), n.breaks = 5) +
+  scale_x_continuous(limits = c(0, 45)) +
+  theme_bw() +
+  labs(x = 'Distance to nearest cardinal axis (°)',
+       y = 'Decoded uncertainty (s.d. in °)') +
+  theme(
+        panel.grid=element_blank(),
+        strip.text = element_blank(),
+        axis.title.x = element_text(size = 25, colour = "black", family = "Helvetica", vjust=0.32),
+        axis.title.y = element_text(size = 25, colour = "black", family = "Helvetica", vjust=2.8),
+        axis.text.x = element_text(size = 20, color="black"),
+        axis.text.y = element_text(size = 20, color="black"),
+        legend.position="none",
+        plot.margin = unit(c(0.3,0.6,0.8,0.85), "cm"),
+        panel.spacing=unit(2, "lines")
+        )
+
+ggsave('../plots/d2c_unc.png', d2c_unc_plot, width=3000, height=3000, units="px")
+
+```
+
+```{r set up unc vs behaviour plots}
 
 sb <- sup_bins %>% rename(bin = 'unc_s_bin')
 sb <- sb[sb$sub %in% sig_subs_s, ]
@@ -280,62 +326,12 @@ db <- db[db$sub %in% sig_subs_d, ]
 all_bins <- rbind(sb, mb, db) %>%
   mutate(bin = as.factor(bin))
 
-# bv_plot <- all_bins %>% ggplot(aes(x=mean_unc, y=b_var)) +
-#   facet_grid(layer ~ ., scales="free") + 
-#   geom_point(aes(color=bin), size=2) +
-#   geom_smooth(method = "lm", se = FALSE, aes(color=layer), linewidth=1.5) +
-#   scale_y_continuous(n.breaks = 3) +
-#   scale_x_continuous(limits = c(8, 55)) +
-#   scale_color_manual(values=c(
-#     "steelblue", "seagreen", "indianred3", "orange",                          
-#     "steelblue", "indianred3", "steelblue")) +
-#   theme_bw() +
-#   labs(
-#     x= "Uncertainty",
-#     y= "Bias"
-#   ) +
-#   theme(
-#         panel.grid=element_blank(), 
-#         strip.text = element_blank(),
-#         axis.title.x = element_blank(),
-#         axis.title.y = element_blank(),
-#         axis.text.x = element_text(size = 25, color="black"),
-#         axis.text.y = element_text(size = 25, color="black"),
-#         legend.position="none",
-#         panel.spacing=unit(2, "lines")
-#         )
-  
+layer_labs = c("Superficial", "Middle", "Deep")
 ```
 
-```{r bias plot}
+```{r bvar vs unc plot}
 
-layer_labs = c("Superficial", "Middle", "Deep")
-
-bias_plot <- all_bins %>% ggplot(aes(x=mean_unc, y=bias)) +
-  facet_grid(fct_rev(layer) ~ ., space="free", labeller=labeller(layer=layer_labs)) +
-  geom_point(aes(color=bin), size=2) +
-  geom_smooth(method = "lm", se = FALSE, linewidth=1.5, aes(color="black"), linetype="dashed") +
-  scale_x_continuous(limits = c(8, 55)) +
-  scale_color_manual(values=c(
-    "steelblue", "seagreen", "indianred3", "orange",
-    "black")) +
-  theme_bw() +
-  labs(x = 'Decoded uncertainty (s.d. in °)',
-       y = 'Mean repulsive bias (°)') +
-  theme(
-        panel.grid=element_blank(),
-        strip.text =element_blank(),
-        axis.title.x = element_text(size = 25, colour = "black", family = "Helvetica", vjust=0.32),
-        axis.title.y = element_text(size = 25, colour = "black", family = "Helvetica", vjust=2.8),
-        axis.text.x = element_text(size = 20, color="black"),
-        axis.text.y = element_text(size = 20, color="black"),
-        legend.position="none",
-        plot.margin = unit(c(0.3,0.6,0.8,0.85), "cm"),
-        panel.spacing=unit(2, "lines")
-        )
-
-ggsave('unc_bias.png', bias_plot, width=3000, height=3000, units="px")
-
+## Figure 3.6
 bv_plot <- all_bins %>% ggplot(aes(x=mean_unc, y=b_var)) +
   facet_grid(fct_rev(layer) ~ ., space="free") +
   geom_point(aes(color=bin), size=2) +
@@ -364,166 +360,31 @@ ggsave('../plots/unc_bvar.png', bv_plot, width=3000, height=3000, units="px")
 
 ```
 
-```{r completion pres plots}
+```{r bias vs unc plot}
 
-dec_acc_compl <- df_plot %>%
-  ggplot(aes(x = layer, y = mean_error, color=layer)) +
-  scale_color_manual(values=c('steelblue', 'indianred3','steelblue')) +
-  geom_jitter(aes(x=layer, y=de), color="black", width=0.2, size=2, data=df_points) +
-  geom_point(size=8) +
-  geom_errorbar(aes(x = layer, ymin = c_lower, ymax = c_upper, linewidth=1.5), data=df_plot) +
-  geom_hline(yintercept=45, linetype="dashed", color="grey48", linewidth=2) +
-  scale_y_continuous(breaks = c(0, 15, 30, 45, 60), limits = c(0,60)) +
-  scale_x_discrete(
-    limits = c("sup", "mid", "deep"), 
-    labels = c('sup' = 'Superficial', 'mid' = 'Middle', 'deep' ='Deep')) +
-  theme_bw() +
-  theme(legend.position="none", 
-        panel.grid=element_blank(), 
-        strip.text = element_blank(),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(size = 32, color="black", vjust=0.2),
-        axis.text.y = element_text(size = 32, color="black"),
-        plot.margin = unit(c(0.3,0.6,0.4,0.2), "cm"),
-        )
-
-
-ggsave('dec_acc_compl.png', dec_acc_compl, width=2800, height=2250, units="px")
-
-bv_plot_compl <- all_bins %>% ggplot(aes(x=mean_unc, y=b_var)) +
-  facet_grid(fct_rev(layer) ~ ., space="free") +
-  geom_point(aes(color=layer), size=3) +
-  geom_smooth(method = "lm", se = FALSE, linewidth=2, aes(color="black"), linetype="dashed") +
-  scale_y_continuous(limits = c(6,14), n.breaks = 5) +
+## Figure 3.7
+bias_plot <- all_bins %>% ggplot(aes(x=mean_unc, y=bias)) +
+  facet_grid(fct_rev(layer) ~ ., space="free", labeller=labeller(layer=layer_labs)) +
+  geom_point(aes(color=bin), size=2) +
+  geom_smooth(method = "lm", se = FALSE, linewidth=1.5, aes(color="black"), linetype="dashed") +
   scale_x_continuous(limits = c(8, 55)) +
   scale_color_manual(values=c(
-    "black", "steelblue", "indianred3", "steelblue")) +
+    "steelblue", "seagreen", "indianred3", "orange",
+    "black")) +
   theme_bw() +
+  labs(x = 'Decoded uncertainty (s.d. in °)',
+       y = 'Mean repulsive bias (°)') +
   theme(
         panel.grid=element_blank(),
-        strip.text = element_blank(),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(size = 32, color="black"),
-        axis.text.y = element_text(size = 32, color="black"),
+        strip.text =element_blank(),
+        axis.title.x = element_text(size = 25, colour = "black", family = "Helvetica", vjust=0.32),
+        axis.title.y = element_text(size = 25, colour = "black", family = "Helvetica", vjust=2.8),
+        axis.text.x = element_text(size = 20, color="black"),
+        axis.text.y = element_text(size = 20, color="black"),
         legend.position="none",
-        plot.margin = unit(c(0.3,0.6,0.4,0.2), "cm"),
+        plot.margin = unit(c(0.3,0.6,0.8,0.85), "cm"),
         panel.spacing=unit(2, "lines")
         )
 
-ggsave('../plots/unc_bvar_compl.png', bv_plot_compl, width=3900, height=3000, units="px")
-
-
-bias_plot_compl <- all_bins %>% ggplot(aes(x=mean_unc, y=bias)) +
-  facet_grid(fct_rev(layer) ~ ., space="free") +
-  geom_point(aes(color=layer), size=3) +
-  geom_smooth(method = "lm", se = FALSE, linewidth=2, aes(color="black"), linetype="dashed") +
-  scale_x_continuous(limits = c(8, 55)) +
-  scale_color_manual(values=c(
-    "black", "steelblue", "indianred3", "steelblue")) +
-  theme_bw() +
-  theme(
-        panel.grid=element_blank(),
-        strip.text = element_blank(),
-        axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(size = 32, color="black"),
-        axis.text.y = element_text(size = 32, color="black"),
-        legend.position="none",
-        plot.margin = unit(c(0.3,0.6,0.4,0.2), "cm"),
-        panel.spacing=unit(2, "lines")
-        )
-
-ggsave('../plots/unc_bias_compl.png', bias_plot_compl, width=3900, height=3000, units="px")
-
-```
-
-
-```{r sup}
-sup_dec <- all_participants %>%
-  group_by(sub) %>%
-  summarise(
-    de_mean = mean(de_s),
-    de_sd = sd(de_s),
-    n = n()) %>% 
-  mutate(layer = rep('sup', length(de_mean)),
-           de_sderr = de_sd/sqrt(n)) %>%
-  mutate(sig = (de_mean+1.96*de_sderr < 45))
-
-mid_dec <- all_participants %>%
-  group_by(sub) %>%
-  summarise(
-    de_mean = mean(de_m),
-    de_sd = sd(de_m),
-    n = n()) %>% 
-  mutate(layer = rep('mid', length(de_mean)),
-           de_sderr = de_sd/sqrt(n)) %>%
-  mutate(sig = (de_mean+1.96*de_sderr < 45))
-
-deep_dec <- all_participants %>%
-  group_by(sub) %>%
-  summarise(
-    de_mean = mean(de_d),
-    de_sd = sd(de_d),
-    n = n()) %>% 
-  mutate(layer = rep('deep', length(de_mean)),
-           de_sderr = de_sd/sqrt(n)) %>%
-  mutate(sig = (de_mean+1.96*de_sderr < 45))
-
-dec <- rbind(sup_dec, mid_dec, deep_dec) %>%
-  mutate(upper = de_mean + 1.96*de_sderr,
-         lower = de_mean - 1.96*de_sderr)
-
-layer_means <- dec %>%
-  group_by(layer) %>%
-  summarise(mean = mean(de_mean))
-  
-dec %>%
-  ggplot(aes(x=sub, y=de_mean, color=sig)) +
-  scale_color_manual(values = c("indianred3", "steelblue")) +
-  geom_hline(data=layer_means, aes(yintercept = mean), color="black", linewidth=1.1,alpha=0.5) +
-  geom_hline(yintercept=45, color="grey28",linewidth=1.1,alpha=0.9, linetype="dashed") +
-  geom_point(size=4) +
-  facet_grid(layer ~ .) +
-  geom_errorbar(aes(x=sub, ymin=lower, ymax=upper), linewidth=1.2) +
-  scale_y_continuous(breaks=c(0,45,60), limits=c(0,60)) +
-  theme_bw() +
-  labs(
-    x= "Subject",
-    y= "Mean decoding error (°)"
-  ) +
-  theme(legend.position="none", 
-        panel.grid=element_blank(), 
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank(),
-        strip.text = element_blank(),
-        axis.title.x = element_text(size = 30),
-        axis.title.y = element_text(size = 30, angle = 0, vjust=0.5, hjust=0.5),
-        axis.text.y = element_text(size = 20)
-        )
-  
-dec %>%
-  ggplot(aes(x=sub, y=de_mean, color=sig)) +
-  geom_hline(data=layer_means, aes(yintercept = mean), color="black", linetype="dashed", linewidth=1.1,alpha=0.5) +
-  geom_hline(yintercept=45, color="grey28",linewidth=1.1,alpha=0.7) +
-  geom_point(size=4) +
-  facet_grid(layer ~ .) +
-  geom_errorbar(aes(x=sub, ymin=lower, ymax=upper), linewidth=1.2) +
-  scale_y_continuous(breaks=c(0,45,60), limits=c(0,60)) +
-  theme_bw() +
-  labs(
-    x= "Subject",
-    y= "Mean decoding error (deg)"
-  ) +
-  theme(legend.position="none", 
-        panel.grid=element_blank(), 
-        axis.ticks.x = element_blank(),
-        axis.text.x = element_blank(),
-        strip.text = element_blank(),
-        axis.title.x = element_text(size = 30),
-        axis.title.y = element_text(size = 30, angle = 0, vjust=0.5, hjust=0.5),
-        axis.text.y = element_text(size = 20)
-        )
-
+ggsave('unc_bias.png', bias_plot, width=3000, height=3000, units="px")
 ```
